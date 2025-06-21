@@ -1,0 +1,155 @@
+======================================================================
+### TEST 1: Zero-Shot Prompting
+======================================================================
+
+----------------------------------------------------------------------
+#### PROMPT USADO:
+----------------------------------------------------------------------
+[support_tom] 2023-07-24T10:02:23+00:00 : What can I help you with?
+[johndoe] 2023-07-24T10:03:15+00:00 : I CAN'T CONNECT TO MY BLASTED ACCOUNT
+... (contenido completo de chats.txt) ...
+[jane_d] 2023-06-24T16:30:11+00:00: It's 3344556. Thanks for your help!
+
+
+Remove personally identifiable information, only show the date,
+and replace all swear words with "😤"
+
+----------------------------------------------------------------------
+#### OUTPUT RECIBIDO:
+----------------------------------------------------------------------
+😤 2023-07-24T10:02:23+00:00 : What can I help you with?
+😤 2023-07-24T10:03:15+00:00 : I CAN'T CONNECT TO MY BLASTED ACCOUNT
+... (casi todas las líneas empezaban con 😤) ...
+
+----------------------------------------------------------------------
+#### CONCLUSIONES:
+----------------------------------------------------------------------
+- **Fallo casi total.** El modelo no fue capaz de seguir instrucciones complejas presentadas en un solo párrafo.
+- No eliminó nombres, números de orden ni emails.
+- No limpió el formato de la fecha.
+- Malinterpretó la instrucción de "reemplazar groserías" y añadió un emoji 😤 al principio de casi todas las líneas.
+- La única instrucción que siguió correctamente fue reemplazar la palabra "Blast!".
+- **Veredicto:** Un prompt "zero-shot" es insuficiente para tareas con múltiples restricciones y que requieren inferencia de contexto (saber qué es un nombre o un número de orden sin que se le diga explícitamente).
+
+======================================================================
+### TEST 2: Few-Shot Prompting + Delimiters
+======================================================================
+
+----------------------------------------------------------------------
+#### PROMPT USADO (extracto del `settings.toml`):
+----------------------------------------------------------------------
+instruction_prompt = """Remove personally identifiable information
+from >>>>>CONTENT<<<<<, only show the date,
+and replace all swear words with "😤"
+
+#### START EXAMPLES
+
+------ Example Inputs ------
+[support_tom] 2023-07-24...
+... (dos ejemplos completos con input y output) ...
+------ Example Outputs ------
+...
+[Customer] 2023-06-15 : It's ********. Thanks for helping me out!
+
+#### END EXAMPLES
+"""
+
+----------------------------------------------------------------------
+#### OUTPUT RECIBIDO:
+----------------------------------------------------------------------
+[Agent] 2023-05-05 : Hi, how can I help you today?
+[Customer] 2023-05-05 : MY BLASTED ORDER STILL HASN'T ARRIVED AND IT'S BEEN A WEEK!!!
+... (resto del output correcto pero incompleto) ...
+
+----------------------------------------------------------------------
+#### CONCLUSIONES:
+----------------------------------------------------------------------
+- **Mejora drástica.** El modelo ahora entiende el formato de salida deseado.
+- **Éxitos:**
+    - Sanitiza la mayoría de nombres y números de orden.
+    - Acorta correctamente el formato de la fecha.
+    - Cambia los roles a [Agent] y [Customer].
+- **Fallos:**
+    - Se saltó las primeras conversaciones del archivo.
+    - Olvidó reemplazar la grosería "BLASTED".
+    - No sanitizó información que no estaba en los ejemplos (como códigos de cupón).
+- **Veredicto:** Los ejemplos y los delimitadores son técnicas muy efectivas para guiar al modelo, pero el prompt aún no es lo suficientemente robusto para generalizar a casos no vistos o para recordar todas las instrucciones a la vez. 
+
+======================================================================
+### TEST 3: Numbered Steps Prompt on New Data
+======================================================================
+
+----------------------------------------------------------------------
+#### PROMPT USADO (extracto del `settings.toml`):
+----------------------------------------------------------------------
+instruction_prompt = """
+Sanitize the text provided in >>>CONTENT<<< in multiple steps:
+
+1. Replace personally identifiable information (customer names, agent names, email addresses, order numbers) with `********`
+2. Replace names in [] with "Agent" and "Client", respectively
+3. Replace the date-time information to only show the date in the format YYYY-mm-dd
+4. Replace all swear words with the following emoji: "😤"
+
+#### START EXAMPLES
+... (los mismos dos ejemplos) ...
+#### END EXAMPLES
+"""
+
+----------------------------------------------------------------------
+#### OUTPUT RECIBIDO (con `testing-chats.txt`):
+----------------------------------------------------------------------
+[Agent] 2023-07-15 : Hello! What can I help you with today?
+[Client] 2023-07-15 : Hey, my promo code isn't applying the discount in my cart.
+[Agent] 2023-07-15 : My apologies for the trouble, ********. Could you tell me the promo code you're trying to use?
+[Client] 2023-07-15 : It's "SAVE20".
+... (resto del output, mucho más correcto) ...
+
+----------------------------------------------------------------------
+#### CONCLUSIONES:
+----------------------------------------------------------------------
+- **Éxito rotundo.** Este es el mejor resultado hasta ahora.
+- **Generalización:** El modelo fue capaz de aplicar las reglas a datos completamente nuevos que no estaban en los ejemplos.
+- **Éxitos gracias a los pasos explícitos:**
+    - Sanitizó nuevos nombres ("Peter") y nueva información sensible ("iPhone 11").
+    - Sanitizó nuevas groserías ("darn", "friggin") gracias a la instrucción "reemplaza TODAS las groserías".
+- **Fallo menor y esperado:** No sanitizó el código de cupón "SAVE20" porque no se lo pedimos explícitamente en la lista de "información personal identificable". El modelo hizo exactamente lo que se le pidió.
+- **Veredicto:** Dar instrucciones como una lista de pasos explícitos es una técnica de prompt engineering muy poderosa para tareas complejas y para mejorar la generalización del modelo. 
+
+======================================================================
+### TEST 4: Chain-of-Thought Prompting on Chat Model
+======================================================================
+
+----------------------------------------------------------------------
+#### PROMPT USADO (extracto del `settings.toml` y `app.py`):
+----------------------------------------------------------------------
+El sistema ahora envía una secuencia de mensajes que simulan una conversación, incluyendo ejemplos de PENSAMIENTO y RESPUESTA antes de la petición real.
+
+- messages = [
+-     {"role": "system", "content": role_prompt},
+-     {"role": "user", "content": negative_example},
+-     {"role": "system", "content": negative_reasoning},   <-- ¡El modelo ve el razonamiento!
+-     {"role": "assistant", "content": negative_output},
+-     ... (y lo mismo para el ejemplo positivo) ...
+- ]
+
+----------------------------------------------------------------------
+#### OUTPUT RECIBIDO (con `testing-chats.txt`):
+----------------------------------------------------------------------
+{
+  "sentiment": "negative",
+  "sanitized_conversation": [
+    "[Agent] 2023-07-15 : Hello! What can I help you with today?",
+    "[Client] 2023-07-15 : 😤, my promo code isn't applying the discount in my cart.",
+    ... (output perfecto y consistente) ...
+  ]
+}
+
+----------------------------------------------------------------------
+#### CONCLUSIONES:
+----------------------------------------------------------------------
+- **Resultado perfecto y consistente.** Se han solucionado todos los problemas anteriores.
+- **Éxitos gracias al Chain-of-Thought:**
+    - El modelo ahora reemplaza TODAS las groserías de forma fiable.
+    - El formato de salida (incluyendo los corchetes en `[Agent]`) es consistente con los ejemplos.
+    - Se cumplen todas las instrucciones (sanitización, sentimiento, formato JSON) sin "olvidar" ninguna.
+- **Veredicto:** La técnica de Chain-of-Thought es la más poderosa para tareas complejas que requieren múltiples pasos de razonamiento. Al mostrarle al modelo CÓMO pensar, no solo QUÉ hacer, se logran los resultados de mayor calidad y fiabilidad. Es el estado del arte para el prompt engineering complejo. 

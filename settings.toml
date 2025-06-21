@@ -1,0 +1,93 @@
+[general]
+model = "gpt-3.5-turbo"
+temperature = 0
+
+[prompts]
+instruction_prompt = """
+Sanitize the text provided in >>>>>CONTENT<<<<< in multiple steps:
+1. Replace personally identifiable information (customer names, agent names, email addresses, order numbers, coupon codes, and phone models) with `********`
+2. Replace names in [] with "Agent" and "Client", respectively
+3. Replace the date-time information to only show the date in the format YYYY-mm-dd
+4. Replace all swear words with the following emoji: "😤"
+5. Classify the conversation as "negative", "neutral", or "positive"
+6. Format the output as a JSON object with two keys: "sentiment" and "sanitized_conversation", where the value of "sanitized_conversation" is a list of strings
+"""
+
+role_prompt = """
+You are a helpful assistant for a customer support center.
+Your task is to sanitize and format chat conversations.
+"""
+
+# The following prompts are used for few-shot prompting
+# and are based on the chain-of-thought technique.
+# You can learn more about this in the associated Real Python tutorial.
+positive_example = """
+[support_jane] 2023-08-10T09:12:45+00:00 : Hi there! How can I help you today?
+[mary_smith] 2023-08-10T09:13:30+00:00 : I'm having trouble accessing my account. Can you please help me?
+[support_jane] 2023-08-10T09:14:05+00:00 : Of course, Mary. Can you provide me with your email address?
+[mary_smith] 2023-08-10T09:14:45+00:00 : It's marysmith@email.com. Thanks!
+"""
+positive_reasoning = """
+The user wants to sanitize a chat conversation.
+
+Here's my thinking process:
+1.  **Sentiment Analysis**: The conversation is a standard inquiry without any strong emotions. It's a "neutral" sentiment.
+2.  **PII Detection**:
+    -   `support_jane`: Agent name.
+    -   `mary_smith`: Customer name.
+    -   `Mary`: Customer name.
+    -   `marysmith@email.com`: Email address.
+3.  **Sanitization**:
+    -   Replace `[support_jane]` and `[mary_smith]` with `[Agent]` and `[Client]`.
+    -   Replace all occurrences of `Mary` with `********`.
+    -   Replace `marysmith@email.com` with `********`.
+    -   Shorten the timestamps to `YYYY-MM-DD`.
+4.  **JSON Formatting**: Combine the sentiment and the sanitized conversation into a JSON object.
+"""
+positive_output = """
+{
+  "sentiment": "neutral",
+  "sanitized_conversation": [
+    "[Agent] 2023-08-10 : Hi there! How can I help you today?",
+    "[Client] 2023-08-10 : I'm having trouble accessing my account. Can you please help me?",
+    "[Agent] 2023-08-10 : Of course, ********. Can you provide me with your email address?",
+    "[Client] 2023-08-10 : It's ********. Thanks!"
+  ]
+}
+"""
+
+negative_example = """
+[support_john] 2023-10-19T14:28:19+00:00 : Welcome! How can I assist you right now?
+[betty_boo] 2023-10-19T14:29:03+00:00 : Fudge! There's no option to change my profile picture. What kind of crikey joint are you running?
+[support_john] 2023-10-19T14:29:45+00:00 : Let me help you with this, Betty. Are you trying to update it from the mobile app or the website?
+[betty_boo] 2023-10-19T14:30:12+00:00 : I'm using the darn website on my iPhone 11
+"""
+negative_reasoning = """
+The user wants to sanitize a chat conversation.
+
+Here's my thinking process:
+1.  **Sentiment Analysis**: The user expresses frustration with words like "Fudge!", "crikey", and "darn". This is a "negative" sentiment.
+2.  **PII Detection**:
+    -   `support_john`: Agent name.
+    -   `betty_boo`: Customer name.
+    -   `Betty`: Customer name.
+    -   `iPhone 11`: Phone model.
+3.  **Sanitization**:
+    -   Replace `[support_john]` and `[betty_boo]` with `[Agent]` and `[Client]`.
+    -   Replace all occurrences of `Betty` with `********`.
+    -   Replace `iPhone 11` with `********`.
+    -   Shorten the timestamps to `YYYY-MM-DD`.
+    -   Replace "Fudge!", "crikey", and "darn" with "😤".
+4.  **JSON Formatting**: Combine the sentiment and the sanitized conversation into a JSON object.
+"""
+negative_output = """
+{
+  "sentiment": "negative",
+  "sanitized_conversation": [
+    "[Agent] 2023-10-19 : Welcome! How can I assist you right now?",
+    "[Client] 2023-10-19 : 😤! There's no option to change my profile picture. What kind of 😤 joint are you running?",
+    "[Agent] 2023-10-19 : Let me help you with this, ********. Are you trying to update it from the mobile app or the website?",
+    "[Client] 2023-10-19 : I'm using the 😤 website on my ********"
+  ]
+}
+"""
