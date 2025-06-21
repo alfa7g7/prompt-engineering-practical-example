@@ -29,8 +29,8 @@ This repository implements a customer support chat sanitization system using var
 
 ### 1. Clone the repository
 ```bash
-git clone <your-repo-url>
-cd "Prompt Engineering A Practical Example"
+git clone https://github.com/alfa7g7/prompt-engineering-practical-example.git
+cd prompt-engineering-practical-example
 ```
 
 ### 2. Create a virtual environment
@@ -205,11 +205,11 @@ temperature = 0.0  # For more consistent responses
 If you use this repository or its methodology in your research, please cite as:
 
 ```
-@misc{promptengineering2024,
+@misc{promptengineering2025,
   title={Prompt Engineering: A Practical Example},
-  author={Your Name},
-  year={2024},
-  howpublished={\url{https://github.com/yourusername/yourrepo}}
+  author={alfa7g7},
+  year={2025},
+  howpublished={\url{https://github.com/alfa7g7/prompt-engineering-practical-example}}
 }
 ```
 
